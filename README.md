@@ -131,6 +131,6 @@ This project is for educational purposes.
 
 ## Author
 
-[YOUR NAME]  
-[YOUR COLLEGE / UNIVERSITY]  
-[YEAR]
+HALEEMA FAHMA M C 
+RAJAGIRI COLLEGE OF SOCIAL SCIENCES 
+2025-27
