@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Smart Face Detection & Attendance System</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #07090f;
+      --surface:   #0d1117;
+      --panel:     rgba(10, 14, 22, 0.88);
+      --border:    rgba(0, 255, 100, 0.15);
+      --green:     #00ff64;
+      --cyan:      #00e5ff;
+      --amber:     #ffb830;
+      --red:       #ff4444;
+      --white:     #e8eaf0;
+      --muted:     #8892a4;
+      --font-mono: 'Share Tech Mono', monospace;
+      --font-sans: 'Inter', sans-serif;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--white);
+      font-family: var(--font-sans);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    /* ── TOP NAV ── */
+    nav {
+      width: 100%;
+      background: rgba(13,17,23,0.95);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      height: 52px;
+      backdrop-filter: blur(8px);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .nav-brand {
+      font-family: var(--font-mono);
+      font-size: 14px;
+      color: var(--amber);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+    }
+    .nav-links a {
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 500;
+      margin-left: 24px;
+      transition: color 0.2s;
+    }
+    .nav-links a:hover, .nav-links a.active { color: var(--green); }
+
+    /* ── MAIN LAYOUT ── */
+    main {
+      width: 100%;
+      max-width: 1100px;
+      padding: 24px 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+    }
+
+    /* ── DASHBOARD STATS BAR ── */
+    .stats-bar {
+      width: 100%;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      backdrop-filter: blur(12px);
+    }
+    .stat-item {
+      padding: 14px 18px;
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .stat-item:last-child { border-right: none; }
+    .stat-label {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .stat-value {
+      font-family: var(--font-mono);
+      font-size: 22px;
+      font-weight: 700;
+    }
+    .stat-value.fps    { color: var(--cyan); }
+    .stat-value.faces  { color: var(--green); }
+    .stat-value.saved  { color: var(--amber); }
+    .stat-value.time   { color: var(--white); font-size: 14px; margin-top: 4px; }
+
+    /* ── VIDEO AREA ── */
+    .video-wrapper {
+      position: relative;
+      width: 100%;
+      max-width: 860px;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      background: #000;
+      box-shadow: 0 0 60px rgba(0,255,100,0.06), 0 0 0 1px rgba(0,255,100,0.08);
+    }
+    #video {
+      display: block;
+      width: 100%;
+      transform: scaleX(-1); /* Mirror for natural selfie feel */
+    }
+    #canvas {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      transform: scaleX(-1); /* Mirror canvas to match video */
+    }
+
+    /* Overlay when camera not started */
+    .camera-overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: rgba(7,9,15,0.92);
+      gap: 16px;
+      z-index: 10;
+    }
+    .camera-overlay svg { opacity: 0.3; }
+    .camera-overlay p { color: var(--muted); font-size: 14px; text-align: center; max-width: 260px; }
+    .camera-overlay.hidden { display: none; }
+
+    /* Toast notification */
+    #toast {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: rgba(0,200,80,0.15);
+      border: 1px solid var(--green);
+      color: var(--green);
+      padding: 10px 22px;
+      border-radius: 30px;
+      font-family: var(--font-mono);
+      font-size: 13px;
+      letter-spacing: 1px;
+      white-space: nowrap;
+      opacity: 0;
+      transition: opacity 0.3s, transform 0.3s;
+      pointer-events: none;
+      backdrop-filter: blur(8px);
+      z-index: 20;
+    }
+    #toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+    #toast.warning { background: rgba(255,68,68,0.15); border-color: var(--red); color: var(--red); }
+    #toast.reset   { background: rgba(0,229,255,0.10); border-color: var(--cyan); color: var(--cyan); }
+
+    /* ── CONTROL BUTTONS ── */
+    .controls {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .btn {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 11px 24px;
+      border-radius: 8px;
+      font-family: var(--font-sans);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: all 0.2s;
+      letter-spacing: 0.5px;
+    }
+    .btn-primary {
+      background: rgba(0,255,100,0.12);
+      border-color: var(--green);
+      color: var(--green);
+    }
+    .btn-primary:hover { background: rgba(0,255,100,0.22); box-shadow: 0 0 20px rgba(0,255,100,0.2); }
+    .btn-secondary {
+      background: rgba(0,229,255,0.08);
+      border-color: var(--cyan);
+      color: var(--cyan);
+    }
+    .btn-secondary:hover { background: rgba(0,229,255,0.16); }
+    .btn-danger {
+      background: rgba(255,68,68,0.08);
+      border-color: var(--red);
+      color: var(--red);
+    }
+    .btn-danger:hover { background: rgba(255,68,68,0.16); }
+    .btn kbd {
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 4px;
+      padding: 1px 7px;
+      font-size: 11px;
+      font-family: var(--font-mono);
+    }
+
+    /* ── KEYBOARD HINT BAR ── */
+    .hint-bar {
+      width: 100%;
+      text-align: center;
+      font-size: 12px;
+      color: var(--muted);
+      font-family: var(--font-mono);
+      letter-spacing: 0.5px;
+      padding: 6px;
+    }
+
+    /* ── FOOTER ── */
+    footer {
+      margin-top: auto;
+      padding: 20px;
+      font-size: 12px;
+      color: #3a4050;
+      text-align: center;
+      font-family: var(--font-mono);
+    }
+
+    /* Responsive */
+    @media (max-width: 600px) {
+      .stats-bar { grid-template-columns: repeat(2, 1fr); }
+      .stat-item:nth-child(2) { border-right: none; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <span class="nav-brand">⬡ Smart Attendance Portal</span>
+  <div class="nav-links">
+    <a href="/" class="active">Live Detection</a>
+    <a href="/attendance">Attendance Log</a>
+  </div>
+</nav>
+
+<main>
+
+  <!-- STATS BAR -->
+  <div class="stats-bar">
+    <div class="stat-item">
+      <span class="stat-label">Frame Rate</span>
+      <span class="stat-value fps" id="stat-fps">--</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-label">Active Faces</span>
+      <span class="stat-value faces" id="stat-faces">0</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-label">Session Saved</span>
+      <span class="stat-value saved" id="stat-saved">0</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-label">Date / Time</span>
+      <span class="stat-value time" id="stat-time">--</span>
+    </div>
+  </div>
+
+  <!-- VIDEO -->
+  <div class="video-wrapper" id="video-wrapper">
+    <video id="video" autoplay muted playsinline></video>
+    <canvas id="canvas"></canvas>
+
+    <!-- Camera placeholder overlay -->
+    <div class="camera-overlay" id="camera-overlay">
+      <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.2">
+        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+        <circle cx="12" cy="13" r="4"/>
+      </svg>
+      <p>Click "Start Camera" to begin real-time face detection</p>
+    </div>
+
+    <!-- Toast -->
+    <div id="toast"></div>
+  </div>
+
+  <!-- CONTROLS -->
+  <div class="controls">
+    <button class="btn btn-primary" id="btn-start" onclick="startCamera()">
+      ▶ Start Camera
+    </button>
+    <button class="btn btn-secondary" id="btn-capture" onclick="manualCapture()" disabled>
+      <kbd>C</kbd> Manual Capture
+    </button>
+    <button class="btn btn-danger" id="btn-reset" onclick="resetCounter()" disabled>
+      <kbd>R</kbd> Reset Counter
+    </button>
+  </div>
+
+  <div class="hint-bar">Press C to capture · R to reset · Camera runs in your browser — no data leaves your device during detection</div>
+
+</main>
+
+<footer>Smart Face Detection &amp; Attendance System · Python + OpenCV + Flask · SQLite</footer>
+
+<!-- ==========================================
+     JAVASCRIPT — Detection, Tracking, Drawing
+     ========================================== -->
+<script>
+// ── GLOBALS ──────────────────────────────────────────
+const video   = document.getElementById('video');
+const canvas  = document.getElementById('canvas');
+const ctx     = canvas.getContext('2d');
+const overlay = document.getElementById('camera-overlay');
+const toast   = document.getElementById('toast');
+
+let isRunning      = false;
+let sessionSaved   = 0;
+let lastFrameTime  = performance.now();
+let smoothFps      = 0;
+let detectionTimer = null;
+let toastTimer     = null;
+
+// ── SIMPLE CENTROID FACE TRACKER ─────────────────────
+class FaceTracker {
+  constructor() {
+    this.nextId       = 0;
+    this.faces        = {};   // id → {rect, cx, cy, disappeared, lastSaved, flashExpiry}
+    this.distThresh   = 100;
+    this.maxDisappear = 8;
+    this.COOLDOWN_MS  = 5000;
+  }
+
+  update(detectedRects) {
+    const now = Date.now();
+    if (detectedRects.length === 0) {
+      for (const id in this.faces) {
+        this.faces[id].disappeared++;
+        if (this.faces[id].disappeared > this.maxDisappear) delete this.faces[id];
+      }
+      return this.faces;
+    }
+
+    const dets = detectedRects.map(r => ({
+      rect: r,
+      cx: r.x + r.w / 2,
+      cy: r.y + r.h / 2
+    }));
+
+    if (Object.keys(this.faces).length === 0) {
+      dets.forEach(d => this._register(d));
+      return this.faces;
+    }
+
+    const matchedIds  = new Set();
+    const matchedDets = new Set();
+
+    for (const id in this.faces) {
+      const f = this.faces[id];
+      let minDist = Infinity, bestIdx = -1;
+      dets.forEach((d, i) => {
+        if (matchedDets.has(i)) return;
+        const dist = Math.hypot(d.cx - f.cx, d.cy - f.cy);
+        if (dist < minDist) { minDist = dist; bestIdx = i; }
+      });
+
+      if (bestIdx !== -1 && minDist < this.distThresh) {
+        Object.assign(f, { rect: dets[bestIdx].rect, cx: dets[bestIdx].cx, cy: dets[bestIdx].cy, disappeared: 0 });
+        matchedIds.add(id);
+        matchedDets.add(bestIdx);
+      }
+    }
+
+    for (const id in this.faces) {
+      if (!matchedIds.has(id)) {
+        this.faces[id].disappeared++;
+        if (this.faces[id].disappeared > this.maxDisappear) delete this.faces[id];
+      }
+    }
+
+    dets.forEach((d, i) => { if (!matchedDets.has(i)) this._register(d); });
+    return this.faces;
+  }
+
+  _register(det) {
+    this.faces[this.nextId++] = {
+      rect: det.rect, cx: det.cx, cy: det.cy,
+      disappeared: 0, lastSaved: 0, flashExpiry: 0
+    };
+  }
+}
+
+const tracker = new FaceTracker();
+
+// ── CAMERA ───────────────────────────────────────────
+async function startCamera() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 }, audio: false });
+    video.srcObject = stream;
+    await new Promise(r => video.onloadedmetadata = r);
+    canvas.width  = video.videoWidth;
+    canvas.height = video.videoHeight;
+    overlay.classList.add('hidden');
+    document.getElementById('btn-start').textContent   = '⏹ Stop Camera';
+    document.getElementById('btn-start').onclick       = stopCamera;
+    document.getElementById('btn-capture').disabled    = false;
+    document.getElementById('btn-reset').disabled      = false;
+    isRunning = true;
+    detectionLoop();
+    clockLoop();
+  } catch (e) {
+    showToast('Camera access denied or unavailable.', 'warning');
+  }
+}
+
+function stopCamera() {
+  isRunning = false;
+  clearTimeout(detectionTimer);
+  if (video.srcObject) video.srcObject.getTracks().forEach(t => t.stop());
+  overlay.classList.remove('hidden');
+  document.getElementById('btn-start').textContent = '▶ Start Camera';
+  document.getElementById('btn-start').onclick     = startCamera;
+  document.getElementById('btn-capture').disabled  = true;
+  document.getElementById('btn-reset').disabled    = true;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+}
+
+// ── GRAB FRAME AS BASE64 ─────────────────────────────
+function captureFrame(quality = 0.6) {
+  const tmp = document.createElement('canvas');
+  tmp.width  = video.videoWidth;
+  tmp.height = video.videoHeight;
+  // Draw un-mirrored for server (server doesn't need mirror)
+  tmp.getContext('2d').drawImage(video, 0, 0);
+  return tmp.toDataURL('image/jpeg', quality);
+}
+
+// ── DETECTION LOOP ────────────────────────────────────
+async function detectionLoop() {
+  if (!isRunning) return;
+
+  // FPS calc
+  const now   = performance.now();
+  const diff  = (now - lastFrameTime) / 1000;
+  lastFrameTime = now;
+  if (diff > 0) {
+    const inst = 1 / diff;
+    smoothFps  = smoothFps === 0 ? inst : 0.85 * smoothFps + 0.15 * inst;
+    document.getElementById('stat-fps').textContent = smoothFps.toFixed(1);
+  }
+
+  try {
+    const b64 = captureFrame(0.55);
+    const res = await fetch('/detect', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ image: b64 })
+    });
+    const data = await res.json();
+
+    // Update tracker
+    const faces = tracker.update(data.faces || []);
+    document.getElementById('stat-faces').textContent = data.count || 0;
+
+    // Draw
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    for (const id in faces) {
+      const f   = faces[id];
+      if (f.disappeared > 0) continue;
+      const now2 = Date.now();
+
+      // Mirror the x coordinate for canvas (because canvas is mirrored via CSS)
+      const mx = canvas.width - f.rect.x - f.rect.w;
+      const flash = now2 < f.flashExpiry;
+      const color = flash ? '#00e5ff' : '#00ff64';
+
+      drawHUD(mx, f.rect.y, f.rect.w, f.rect.h, color, id, flash);
+
+      // Auto-save cooldown check
+      if (now2 - f.lastSaved >= 5000) {
+        f.lastSaved    = now2;
+        f.flashExpiry  = now2 + 400;
+        autoSaveFace(captureFrame(0.8), id, f.rect);
+      }
+    }
+
+  } catch (e) { /* network hiccup, skip frame */ }
+
+  detectionTimer = setTimeout(detectionLoop, 120);
+}
+
+// ── DRAW HUD CORNER BRACKETS ─────────────────────────
+function drawHUD(x, y, w, h, color, id, flash) {
+  const CL  = Math.min(18, w * 0.22);
+  const LW  = flash ? 3.5 : 2.5;
+  const BW  = 0.8;
+
+  ctx.strokeStyle = color;
+  ctx.lineWidth   = BW;
+  ctx.globalAlpha = 0.5;
+  ctx.strokeRect(x, y, w, h);
+  ctx.globalAlpha = 1;
+
+  ctx.lineWidth = LW;
+  ctx.lineCap   = 'round';
+  const corners = [
+    [[x, y + CL], [x, y], [x + CL, y]],
+    [[x + w - CL, y], [x + w, y], [x + w, y + CL]],
+    [[x, y + h - CL], [x, y + h], [x + CL, y + h]],
+    [[x + w - CL, y + h], [x + w, y + h], [x + w, y + h - CL]]
+  ];
+  corners.forEach(pts => {
+    ctx.beginPath();
+    ctx.moveTo(...pts[0]);
+    ctx.lineTo(...pts[1]);
+    ctx.lineTo(...pts[2]);
+    ctx.stroke();
+  });
+
+  // ID label
+  const label = `Face #${id}`;
+  ctx.font     = 'bold 12px "Share Tech Mono", monospace';
+  const tw     = ctx.measureText(label).width;
+  const lx     = x;
+  const ly     = y > 30 ? y - 8 : y + h + 20;
+
+  ctx.fillStyle   = 'rgba(0,0,0,0.75)';
+  ctx.fillRect(lx - 2, ly - 14, tw + 12, 19);
+  ctx.fillStyle   = color;
+  ctx.fillText(label, lx + 4, ly);
+}
+
+// ── SAVE FACE (AUTO) ──────────────────────────────────
+async function autoSaveFace(b64, faceId, rect) {
+  try {
+    const res = await fetch('/save_face', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ image: b64, face_id: faceId, capture_type: 'Automatic', face_region: rect })
+    });
+    const data = await res.json();
+    if (data.success) {
+      sessionSaved++;
+      document.getElementById('stat-saved').textContent = sessionSaved;
+      showToast(`Face #${faceId} Logged!`);
+    }
+  } catch (e) {}
+}
+
+// ── MANUAL CAPTURE ────────────────────────────────────
+async function manualCapture() {
+  if (!isRunning) return;
+  const faces = tracker.faces;
+  const ids   = Object.keys(faces).filter(id => faces[id].disappeared === 0);
+  if (ids.length === 0) { showToast('No faces detected!', 'warning'); return; }
+
+  const b64 = captureFrame(0.9);
+  let count = 0;
+  for (const id of ids) {
+    const f = faces[id];
+    f.lastSaved   = Date.now();
+    f.flashExpiry = Date.now() + 400;
+    try {
+      const res = await fetch('/save_face', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: b64, face_id: id, capture_type: 'Manual', face_region: f.rect })
+      });
+      const data = await res.json();
+      if (data.success) { sessionSaved++; count++; }
+    } catch(e) {}
+  }
+  document.getElementById('stat-saved').textContent = sessionSaved;
+  showToast(`Manual Capture — ${count} face(s) saved`);
+}
+
+// ── RESET COUNTER ─────────────────────────────────────
+function resetCounter() {
+  sessionSaved = 0;
+  document.getElementById('stat-saved').textContent = 0;
+  showToast('Session counter reset!', 'reset');
+}
+
+// ── TOAST ─────────────────────────────────────────────
+function showToast(msg, type = '') {
+  clearTimeout(toastTimer);
+  toast.textContent = msg;
+  toast.className   = 'show' + (type ? ' ' + type : '');
+  toastTimer = setTimeout(() => { toast.className = ''; }, 2200);
+}
+
+// ── CLOCK LOOP ────────────────────────────────────────
+function clockLoop() {
+  const fmt = new Intl.DateTimeFormat('en-IN', {
+    year:'numeric', month:'2-digit', day:'2-digit',
+    hour:'2-digit', minute:'2-digit', second:'2-digit', hour12: false
+  });
+  const tick = () => {
+    document.getElementById('stat-time').textContent = fmt.format(new Date()).replace(',','');
+    setTimeout(tick, 1000);
+  };
+  tick();
+}
+clockLoop();
+
+// ── KEYBOARD SHORTCUTS ────────────────────────────────
+document.addEventListener('keydown', e => {
+  if (!isRunning) return;
+  if (e.key === 'c' || e.key === 'C') manualCapture();
+  if (e.key === 'r' || e.key === 'R') resetCounter();
+});
+</script>
+</body>
+</html>
