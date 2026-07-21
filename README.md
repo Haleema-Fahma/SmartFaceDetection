@@ -6,16 +6,29 @@ A professional, real-time **Face Detection and Attendance Logging** system built
 
 ---
 
-## Demo
+## Screenshots
 
-[Insert Screenshot: Main Window]  
-*Figure 1: Real-time webcam feed with HUD overlays and dashboard.*
+### Main Application Window
+![Main Window](screenshots/screenshot_main_window.jpg)
+*Figure 1: Real-time webcam feed with semi-transparent HUD dashboard showing FPS, Active Faces, Session Saved count and live date-time.*
 
-[Insert Screenshot: Face Detection]  
-*Figure 2: Green HUD corner brackets and Face ID label on detected face.*
+---
 
-[Insert Screenshot: Captured Face Saved]  
-*Figure 3: Cyan bracket flash and toast notification on capture.*
+### Multi-Face Detection and Tracking
+![Face Detection](screenshots/screenshot_face_detection.jpg)
+*Figure 2: Green HUD corner bracket boxes drawn around multiple tracked faces, each labeled with a unique Face ID.*
+
+---
+
+### Face Captured — Toast Notification
+![Capture Toast](screenshots/screenshot_capture_toast.jpg)
+*Figure 3: Cyan bracket flash on the bounding box and green "Face #0 Logged!" toast notification at the bottom when a face is captured.*
+
+---
+
+### CapturedFaces Output Folder
+![CapturedFaces Folder](screenshots/screenshot_captured_folder.jpg)
+*Figure 4: The auto-created CapturedFaces/ directory containing timestamped face crop PNG images saved by the system.*
 
 ---
 
@@ -46,6 +59,11 @@ SmartFaceDetection/
 ├── project_report.md                  # Full college project report
 ├── README.md                          # This file
 ├── .gitignore
+├── screenshots/                       # Application screenshots
+│   ├── screenshot_main_window.jpg
+│   ├── screenshot_face_detection.jpg
+│   ├── screenshot_capture_toast.jpg
+│   └── screenshot_captured_folder.jpg
 ├── attendance.db                      # (Auto-created) SQLite database
 └── CapturedFaces/                     # (Auto-created) Saved face images
 ```
@@ -56,7 +74,7 @@ SmartFaceDetection/
 
 ### 1. Clone the Repository
 ```bash
-git clone https://github.com/<your-username>/SmartFaceDetection.git
+git clone https://github.com/Haleema-Fahma/SmartFaceDetection.git
 cd SmartFaceDetection
 ```
 
